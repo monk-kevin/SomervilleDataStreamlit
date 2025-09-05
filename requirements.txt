@@ -1,1 +1,8 @@
 streamlit
+pandas
+os
+sklearn
+xgboost
+numpy
+scipy
+matplotlib

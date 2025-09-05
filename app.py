@@ -11,7 +11,7 @@ with agentic coding alongside Microsoft Co-Pilot
 import streamlit as st
 import pandas as pd
 import os
-from plot_fcns import plot_happiness_dist, plot_mn_happiness, plot_feature_importance_column
+import plot_fcns
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
@@ -74,10 +74,10 @@ def app():
                 With these filters, there are {count_val} respondents. The average happiness score is {mean_val:.2f} +/- {std_val:.2f}
                 """)
     
-    fig1 = plot_mn_happiness(filtered_df, 'Year')
+    fig1 = plot_fcns.plot_mn_happiness(filtered_df, 'Year')
     st.pyplot(fig1)
     
-    fig2 = plot_happiness_dist(filtered_df,'Year')
+    fig2 = plot_fcns.plot_happiness_dist(filtered_df,'Year')
     st.pyplot(fig2)
     
     # performing XGBoost for Feature Importance only upon button press
@@ -183,10 +183,14 @@ def app():
         ftr_names = [col_name for col_name in x_col if col_name not in OHE_col]
         XGB_optimized.get_booster().feature_names = ftr_names
         
-        fig3 = plot_feature_importance_column(XGB_optimized,['weight','gain','cover'])
+        fig3 = plot_fcns.plot_feature_importance_column(XGB_optimized,['weight','gain','cover'])
         st.pyplot(fig3)
         
             
 if __name__ == '__main__':
     app()
 
+#%% - To-Do List - 
+# Cache/load common demographics (e.g., all fields selected as All)
+# List top features and show plots of how they interact with Happiness score
+# Create a second page for historical demographics visualization
