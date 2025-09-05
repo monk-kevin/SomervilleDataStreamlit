@@ -31,7 +31,24 @@ def app():
         st.error('Cannot find processed data -- check file location')
 
     st.title('How happy are Somerville Residents?')
-    st.header('Insights from the biannual Somerville Happiness Survey.')
+    st.markdown(f"""
+                #### Insights from the Binannual Somerville Happiness Survey
+                Every two years since 2011, Somerville has asked a random
+                selection of residents to complete a Happiness survey. In this 
+                survey, respondents are asked to score their happiness with life
+                on a 1 to 5 scale (1 being very unhappy and 5 being very happy).
+                In addition, respondents are also asked a number of different questions
+                related to satisfaction with life in Somerville along with
+                a set of demographic questions. Here, I have created a dashboard
+                to visualize historical trends in Happiness data 
+                (i.e., visualize happiness trends across the years) and identify
+                key features that are important for predicting a Happiness score.
+                At left, there are a number of different demographic features
+                used to filter data from Somerville residents allowing you to interact
+                with the data and understand how happiness scores vary across the years
+                and across demographics.  
+                **__________________________________________________________________________________**
+                """)
     
     # visualize data across column features
     def apply_filter(df, column_name, sidebar_label):
@@ -69,9 +86,12 @@ def app():
     mean_val = filtered_df[col_score].mean()
     std_val = filtered_df[col_score].std()
     count_val = filtered_df[col_score].count()
+    tot_resp = df[col_score].count()
+    prop_val = count_val / tot_resp * 100
     
     st.markdown(f"""
-                With these filters, there are {count_val} respondents. The average happiness score is {mean_val:.2f} +/- {std_val:.2f}
+                With these filters, there are {count_val} respondents, or {prop_val:.2f}% of the full dataset.  
+                The average happiness score is {mean_val:.2f} +/- {std_val:.2f}
                 """)
     
     fig1 = plot_fcns.plot_mn_happiness(filtered_df, 'Year')
@@ -191,6 +211,8 @@ if __name__ == '__main__':
     app()
 
 #%% - To-Do List - 
+# add an error catcher
+# figure out alternate feature importance strategies for filtered datasets too small for XGB
 # Cache/load common demographics (e.g., all fields selected as All)
 # List top features and show plots of how they interact with Happiness score
 # Create a second page for historical demographics visualization
