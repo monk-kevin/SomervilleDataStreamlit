@@ -4,6 +4,7 @@ Created on Thu Sep  4 15:15:26 2025
 
 @author: kevjm
 """
+import streamlit as st
 import pandas as pd
 import numpy as np
 import scipy
@@ -101,6 +102,8 @@ def plot_mn_happiness(df,col_feature,col_score = 'Happiness.5pt.num',sem_flag = 
 
     ax.set_ylim(0,5.5)
     ax.set_xlabel(col_feature)
+    ax.set_xlim(2010,2024)
+    ax.set_xticks(range(2011,2024,2))
 
     if col_score == 'Happiness.5pt.num':
         ax.set_ylabel('Mean Happiness Score')
@@ -108,7 +111,6 @@ def plot_mn_happiness(df,col_feature,col_score = 'Happiness.5pt.num',sem_flag = 
         ax.set_ylabel(f'Mean ({col_score})')
         
     return fig
-
 
 def plot_feature_importance_column(xgb_mdl,importance_types,max_features = 5):
     '''

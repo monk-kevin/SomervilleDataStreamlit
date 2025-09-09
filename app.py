@@ -12,6 +12,7 @@ import streamlit as st
 import pandas as pd
 import os
 import plot_fcns
+import demographic_fcns
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
@@ -57,34 +58,46 @@ def app():
                 **__________________________________________________________________________________**
                 """)
     
-    # visualize data across column features
-    def apply_filter(df, column_name, sidebar_label):
-        """
-        Adds a selectbox to the sidebar with an 'All' option and filters the DataFrame accordingly.
+    # set up binning for demographics
+    age_bins = [0, 20, 30, 40, 50, 60, 70, float("inf")]
+    rent_mortgage_bins = [0,1500,2000,2500,3000,3500,4000,float("inf")]
+    income_bins = [0, 30000, 60000, 90000, 120000, 150000, 175000, float("inf")]
+    
+    # creating dictionary for future binning
+    binning_config = {
+        "Age": {
+            "col_name": "Age.mid",
+            "bins": age_bins,
+            "labels": demographic_fcns.generate_labels(age_bins)
+            },
+        "RentOrMortgage": {
+            "col_name": "Rent.Mortgage.mid",
+            "bins": rent_mortgage_bins,
+            "labels": demographic_fcns.generate_labels(rent_mortgage_bins)
+            },
+        "Income": {
+            "col_name": "Household.Income.mid",
+            "bins": income_bins,
+            "labels": demographic_fcns.generate_labels(income_bins)}
+        }
+    
+    #iterating over demographics to bin and keep new categorical columns for future CT
+    binned_demo_columns = []
+    for col, config in binning_config.items():
+        new_col_name = f"{col}Group"
+        df[new_col_name] = demographic_fcns.bin_demographics(df, 
+                                                             config["col_name"],
+                                                             config["bins"],
+                                                             config["labels"])
+        binned_demo_columns.append(new_col_name)
 
-        Parameters:
-            - df: pandas DataFrame
-            - column_name: str, name of the column to filter
-            - sidebar_label: str, label to display in the sidebar
-        
-        Returns:
-            - filtered_df: pandas DataFrame after applying the filter
-            - selected_value: the value selected in the selectbox
-            """
-        options = ["All"] + sorted(df[column_name].unique().tolist())
-        selected_value = st.sidebar.selectbox(sidebar_label, options)
-        
-        if selected_value != "All":
-            df = df[df[column_name] == selected_value]
-        
-        return df, selected_value
-    demographic_columns = ['Age.mid','Ward','Rent.Mortgage.mid','Household.Income.mid',
+    demographic_columns = ['AgeGroup','Ward','RentOrMortgageGroup','IncomeGroup',
                           'Gender','Race.Ethnicity','Housing.Status']
     filtered_df = df.copy()
     selected_filters = {}
     for col in demographic_columns:
         sidebar_label = f"Select {col} value"
-        filtered_df, selected_value = apply_filter(filtered_df,col,sidebar_label)
+        filtered_df, selected_value = demographic_fcns.apply_filter(filtered_df,col,sidebar_label)
         selected_filters[col] = selected_value
     
     #convert to hashable key
@@ -130,7 +143,7 @@ def app():
                     ):
                 col_categorical_unique.append(s_cat)
                 
-                OHE_col = col_categorical_unique + ['Ward','Year']
+                OHE_col = col_categorical_unique + binned_demo_columns + ['Ward','Year']
                 MMS_col =  ['CrashCount','CrimeCount',
                             'CrashCount_PerYearPerWard','CrimeCount_PerYearPerWard',
                             'bike_count','ped_count','ped2bike_foldinc',
@@ -234,6 +247,9 @@ if __name__ == '__main__':
 #%% - To-Do List - 
 # add an error catcher
 # figure out alternate feature importance strategies for filtered datasets too small for XGB
+# Group demographics
 # Cache/load common demographics (e.g., all fields selected as All)
+#   loading all All - done
+#   caching user input
 # List top features and show plots of how they interact with Happiness score
 # Create a second page for historical demographics visualization
