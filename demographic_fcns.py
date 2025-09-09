@@ -57,28 +57,40 @@ def bin_demographics(df,col_name,bin_edges,lbls):
                   bins = bin_edges,
                   labels = lbls)
 
-    # visualize data across column features
+
 def apply_filter(df, column_name, sidebar_label):
     """
     Adds a selectbox to the sidebar with an 'All' option and filters the DataFrame accordingly.
+    Handles both categorical and numeric values correctly.
     """
     filter_key = f"{column_name}_filter"
     col_data = df[column_name].dropna()
-    
-    # If column is categorical, preserve its order
-    if pd.api.types.is_categorical_dtype(col_data):
-        options = ["All"] + list(col_data.cat.categories)
-    else:
-        options = ["All"] + sorted(map(str, col_data.unique().tolist()))
-    
-    selected_value = st.sidebar.selectbox(
-        sidebar_label,
-        options,
-        index=options.index(st.session_state.get(filter_key,"All")),
-        key = filter_key
-        )
 
+    # Get unique values and preserve order if categorical
+    if pd.api.types.is_categorical_dtype(col_data):
+        unique_vals = list(col_data.cat.categories)
+    else:
+        unique_vals = sorted(col_data.unique().tolist())
+
+    # Display labels as strings, but keep actual values for filtering
+    display_options = ["All"] + [str(opt) for opt in unique_vals]
+    selected_label = st.sidebar.selectbox(
+        sidebar_label,
+        display_options,
+        index=display_options.index(str(st.session_state.get(filter_key, "All"))),
+        key=filter_key
+    )
+
+    # Convert selected label back to original value
+    if selected_label == "All":
+        selected_value = "All"
+    else:
+        selected_value = next((opt for opt in unique_vals if str(opt) == selected_label), selected_label)
+
+    # Apply filter
     if selected_value != "All":
         df = df[df[column_name] == selected_value]
 
     return df, selected_value
+
+
