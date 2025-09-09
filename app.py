@@ -27,6 +27,7 @@ def app():
     All code for the app goes here
 
     """
+    # loading in data and saved model parameters
     if os.path.exists('data/df_happiness_prepped.pkl'):
         df = pd.read_pickle('data/df_happiness_prepped.pkl')
     else:
@@ -38,6 +39,7 @@ def app():
     else:
         st.error('Cannot find saved parameters -- check file location')
 
+    # welcome text
     st.title('How happy are Somerville Residents?')
     st.markdown(f"""
                 #### Insights from the Binannual Somerville Happiness Survey
@@ -58,6 +60,7 @@ def app():
                 **__________________________________________________________________________________**
                 """)
     
+    #sidebar filtering demographics
     # set up binning for demographics
     age_bins = [0, 20, 30, 40, 50, 60, 70, float("inf")]
     rent_mortgage_bins = [0,1500,2000,2500,3000,3500,4000,float("inf")]
@@ -94,6 +97,7 @@ def app():
     demographic_columns = ['AgeGroup','Ward','RentOrMortgageGroup','IncomeGroup',
                           'Gender','Race.Ethnicity','Housing.Status']
     
+    # adding a reset button for all filters
     if st.sidebar.button('Reset Filters'):
         for col in demographic_columns:
             st.session_state[f"{col}_filter"] = "All"
@@ -112,13 +116,8 @@ def app():
         filtered_df, selected_value = demographic_fcns.apply_filter(filtered_df,col,sidebar_label)
         selected_filters[col] = selected_value
     
-    #convert to hashable key
-    # filter_key = tuple(selected_filters.items())
-        
-    # filtered_df, age_group = apply_filter(df,'Age.mid','Median Age Group')
-    # filtered_df, ward_num = apply_filter(filtered_df,'Ward','Ward Number')
-    # filtered_df, year_asked = apply_filter(filtered_df,'Year','Survey Year')
     
+    # organizing data for visualization
     col_score = 'Happiness.5pt.num'
     mean_val = filtered_df[col_score].mean()
     std_val = filtered_df[col_score].std()
@@ -126,22 +125,24 @@ def app():
     tot_resp = df[col_score].count()
     prop_val = count_val / tot_resp * 100
     
+    # display results
     st.markdown(f"""
                 With these filters, there are {count_val} respondents, or {prop_val:.2f}% of the full dataset.  
                 The average happiness score is {mean_val:.2f} +/- {std_val:.2f}
                 """)
     
+    # visualize mean happiness scores across years for data
     fig1 = plot_fcns.plot_mn_happiness(filtered_df, 'Year')
     st.pyplot(fig1)
     
+    # visualize distributions of happiness filters
     fig2 = plot_fcns.plot_happiness_dist(filtered_df,'Year')
     st.pyplot(fig2)
     
+    # identify if filters are set for saved hyperparameters
     is_all_filters = all(val == "All" for val in selected_filters.values())
     # performing XGBoost for Feature Importance only upon button press
     if st.button('Identify Important Features for these data'):
-        
-        
         # classify columns as numeric or categorical
         col_numeric = filtered_df.select_dtypes(include=['float64','int64']).columns.tolist()
         col_categorical = filtered_df.select_dtypes(exclude=['float64','int64']).columns.tolist()
@@ -259,9 +260,9 @@ if __name__ == '__main__':
 #%% - To-Do List - 
 # add an error catcher
 # figure out alternate feature importance strategies for filtered datasets too small for XGB
-# Group demographics
+# Group demographics - done
 # Cache/load common demographics (e.g., all fields selected as All)
 #   loading all All - done
 #   caching user input
 # List top features and show plots of how they interact with Happiness score
-# Create a second page for historical demographics visualization
+# Create a second page for historical demographics visualization?
