@@ -62,6 +62,7 @@ def apply_filter(df, column_name, sidebar_label):
     """
     Adds a selectbox to the sidebar with an 'All' option and filters the DataFrame accordingly.
     """
+    filter_key = f"{column_name}_filter"
     col_data = df[column_name].dropna()
     
     # If column is categorical, preserve its order
@@ -70,7 +71,12 @@ def apply_filter(df, column_name, sidebar_label):
     else:
         options = ["All"] + sorted(map(str, col_data.unique().tolist()))
     
-    selected_value = st.sidebar.selectbox(sidebar_label, options)
+    selected_value = st.sidebar.selectbox(
+        sidebar_label,
+        options,
+        index=options.index(st.session_state.get(filter_key,"All")),
+        key = filter_key
+        )
 
     if selected_value != "All":
         df = df[df[column_name] == selected_value]

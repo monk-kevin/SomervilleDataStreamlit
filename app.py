@@ -93,15 +93,27 @@ def app():
 
     demographic_columns = ['AgeGroup','Ward','RentOrMortgageGroup','IncomeGroup',
                           'Gender','Race.Ethnicity','Housing.Status']
+    
+    if st.sidebar.button('Reset Filters'):
+        for col in demographic_columns:
+            st.session_state[f"{col}_filter"] = "All"
+    
     filtered_df = df.copy()
     selected_filters = {}
     for col in demographic_columns:
+        filter_key = f"{col}_filter"
         sidebar_label = f"Select {col} value"
+        
+        # Initialize session state if not already set
+        if filter_key not in st.session_state:
+            st.session_state[filter_key] = "All"
+        
+        #Apply filter using session state
         filtered_df, selected_value = demographic_fcns.apply_filter(filtered_df,col,sidebar_label)
         selected_filters[col] = selected_value
     
     #convert to hashable key
-    filter_key = tuple(selected_filters.items())
+    # filter_key = tuple(selected_filters.items())
         
     # filtered_df, age_group = apply_filter(df,'Age.mid','Median Age Group')
     # filtered_df, ward_num = apply_filter(filtered_df,'Ward','Ward Number')
