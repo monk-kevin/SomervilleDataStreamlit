@@ -224,8 +224,8 @@ def app():
         st.markdown(f"""
                     An XGBClassifier was evaluated with this filtered data. 
                     Here are those results:  
-                        - Accuracy: {scores['accuracy']}  
-                        - F1 Score: {scores['f1']}
+                        - **Accuracy**: {scores['accuracy']}, 
+                        **F1 Score**: {scores['f1']}
                         """)
         
         # running optimized XGB with full data
@@ -250,8 +250,49 @@ def app():
         ftr_names = [col_name for col_name in x_col if col_name not in OHE_col]
         XGB_optimized.get_booster().feature_names = ftr_names
         
-        fig3 = plot_fcns.plot_feature_importance_column(XGB_optimized,['weight','gain','cover'])
+        
+        
+        
+        
+        # plotting features for different importance types
+        # fig3 = plot_fcns.plot_feature_importance_column(XGB_optimized,['weight','gain','cover'])
+        # st.pyplot(fig3)
+        
+        # identifying important features with weighted avg of importance
+        n_ftrs = 5
+        df_top_features = plot_fcns.get_combined_importance(XGB_optimized, top_n = n_ftrs)
+        
+        # Store results in session state
+        st.session_state['df_top_features'] = df_top_features
+        st.session_state['XGB_optimized'] = XGB_optimized
+        st.session_state['best_params'] = best_params
+        st.session_state['model_trained'] = True
+    
+        
+    if st.session_state.get('model_trained', False):
+        df_top_features = st.session_state['df_top_features']
+        XGB_optimized = st.session_state['XGB_optimized']
+
+        st.subheader(f"Top {len(df_top_features)} Features Driving Happiness Score:")
+        st.markdown("""
+                    Using built-in methods, I have identified the top features that are important
+                    for predicting Happiness Scores for this filtered dataset. Namely, I have created
+                    a Combined Score through a weighted average of 'weight', 'gain', and 'cover' scores.
+                    """)
+        fig3 = plot_fcns.plot_feature_importance_scores(df_top_features)
         st.pyplot(fig3)
+
+        st.markdown("""
+                    Let's see how each feature relates to a respondent's Happiness Score.
+                    Select a feature below to plot Happiness Score as a function of its values.
+                    """)
+
+        feature_options = [f"{ii+1}. {row.Feature}" for ii, row in enumerate(df_top_features.itertuples(index=False))]
+        selected_label = st.selectbox("Choose a Feature to Explore", feature_options)
+        selected_feature = selected_label.split(". ", 1)[-1]
+
+        fig4 = plot_fcns.plot_mn_happiness(filtered_df, selected_feature)
+        st.pyplot(fig4)
         
             
 if __name__ == '__main__':

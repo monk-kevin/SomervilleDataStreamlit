@@ -100,10 +100,19 @@ def plot_mn_happiness(df,col_feature,col_score = 'Happiness.5pt.num',sem_flag = 
              df_grp[col_score,'std'],
              color = 'k')
 
-    ax.set_ylim(0,5.5)
+    ax.set_ylim(0.5,5.5)
     ax.set_xlabel(col_feature)
-    ax.set_xlim(2010,2024)
-    ax.set_xticks(range(2011,2024,2))
+    if col_feature == 'Year':
+        ax.set_xlim(2010,2024)
+        ax.set_xticks(range(2011,2024,2))
+    else:
+        ax.set_xlim(df[col_feature].min()-.5,df[col_feature].max()+.5)
+        ax.set_xticks(np.arange(df[col_feature].min(),
+                                df[col_feature].max()+1,
+                                step = 1.0
+                                )
+                      )
+    
 
     if col_score == 'Happiness.5pt.num':
         ax.set_ylabel('Mean Happiness Score')
@@ -131,4 +140,63 @@ def plot_feature_importance_column(xgb_mdl,importance_types,max_features = 5):
                         xlabel = xlbl
                        )    
         
+    return fig
+
+def get_combined_importance(model, top_n = 5, weights = None):
+    """
+    Returns a DataFrame with normalized weight, gain, cover, and a combined importance score.
+    `weights` is a dict like {'weight': 0.2, 'gain': 0.5, 'cover': 0.3}
+    """
+    booster = model.get_booster()
+    importance_types = ['weight', 'gain', 'cover']
+
+    # Extract raw importance scores
+    raw_scores = {
+        imp_type: booster.get_score(importance_type=imp_type)
+        for imp_type in importance_types
+    }
+
+    # Create unified DataFrame
+    df = pd.DataFrame.from_dict(raw_scores).fillna(0)
+    df.index.name = 'Feature'
+    df.reset_index(inplace=True)
+
+    # Normalize each column
+    for imp_type in importance_types:
+        max_val = df[imp_type].max()
+        df[f"{imp_type}_norm"] = df[imp_type] / max_val if max_val > 0 else 0
+
+    # Default weights if none provided
+    if weights is None:
+        weights = {'weight': 0.15, 'gain': 0.6, 'cover': 0.25}
+
+    # Compute combined score
+    df['combined_score'] = (
+        weights['weight'] * df['weight_norm'] +
+        weights['gain']   * df['gain_norm'] +
+        weights['cover']  * df['cover_norm']
+    )
+
+    df.sort_values(by='combined_score', ascending=False, inplace=True)
+
+    if top_n:
+        df = df.head(top_n)
+
+    return df[['Feature', 'weight', 'gain', 'cover', 'combined_score']]
+
+def plot_feature_importance_scores(df):
+    #reverse order for top-down plotting
+    df = df[::-1]
+    # plotting
+    fig, ax = plt.subplots(figsize=(8,4))
+    ax.barh(df['Feature'],
+            df['combined_score'],
+            color='skyblue')
+
+    # Labels and title
+    ax.set_xlabel('Combined Importance Score')
+    ax.set_xlim(0,1)
+    ax.set_title('Top 5 Feature Importances')
+    plt.tight_layout()
+
     return fig
