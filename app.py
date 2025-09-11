@@ -221,12 +221,7 @@ def app():
             scores['accuracy'] = round(metrics.accuracy_score(y_test, y_pred), 3)
             scores['f1'] = round(metrics.f1_score(y_test,y_pred,average = 'weighted'),3)
             
-        st.markdown(f"""
-                    An XGBClassifier was evaluated with this filtered data. 
-                    Here are those results:  
-                        - **Accuracy**: {scores['accuracy']}, 
-                        **F1 Score**: {scores['f1']}
-                        """)
+        
         
         # running optimized XGB with full data
         XGB_optimized = XGBClassifier(**best_params)
@@ -266,12 +261,21 @@ def app():
         st.session_state['df_top_features'] = df_top_features
         st.session_state['XGB_optimized'] = XGB_optimized
         st.session_state['best_params'] = best_params
+        st.session_state['scores'] = scores
         st.session_state['model_trained'] = True
     
         
     if st.session_state.get('model_trained', False):
         df_top_features = st.session_state['df_top_features']
         XGB_optimized = st.session_state['XGB_optimized']
+        scores = st.session_state['scores']
+        
+        st.markdown(f"""
+                    An XGBClassifier was evaluated with this filtered data. 
+                    Here are those results:  
+                        - **Accuracy**: {scores['accuracy']}, 
+                        **F1 Score**: {scores['f1']}
+                        """)
 
         st.subheader(f"Top {len(df_top_features)} Features Driving Happiness Score:")
         st.markdown("""
