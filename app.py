@@ -304,10 +304,14 @@ if __name__ == '__main__':
 
 #%% - To-Do List - 
 # add an error catcher
-# figure out alternate feature importance strategies for filtered datasets too small for XGB
+# Alternative plotting libraries (plotly, altair)
+# add button to retrain model and separate from feature importance
+# figure out alternate feature importance strategies for filtered datasets too small for XGB?
 # Group demographics - done
 # Cache/load common demographics (e.g., all fields selected as All)
 #   loading all All - done
-#   caching user input
-# List top features and show plots of how they interact with Happiness score
-# Create a second page for historical demographics visualization?
+#   caching user input (cache to disk, but have to reset each site visit)
+# List top features and show plots of how they interact with Happiness score - done
+# Create a second page for:
+#       historical demographics visualization?
+#       unsupervised clustering of respondents
