@@ -12,6 +12,8 @@ import sklearn
 import os
 import matplotlib.pyplot as plt
 from xgboost import plot_importance
+import altair as alt
+
 
 def plot_happiness_dist(df,groupby_var):
     """
@@ -82,6 +84,53 @@ def plot_happiness_dist(df,groupby_var):
         fig.set_figwidth(30)
     
     return fig
+
+
+def plot_happiness_dist_altair(df, groupby_var):
+    """
+    Creates stacked bar plots using Altair based on the provided groupby_var.
+    If one variable is provided, a single stacked bar chart is returned.
+    If two variables are provided, a faceted chart is returned.
+    """
+    # Prepare data: count and normalize
+    df_plot = (
+        df.groupby(groupby_var + ['Happiness.5pt.num'])
+          .size()
+          .reset_index(name='count')
+    )
+
+    # Normalize within each group
+    df_plot['total'] = df_plot.groupby(groupby_var)['count'].transform('sum')
+    df_plot['proportion'] = df_plot['count'] / df_plot['total']
+
+    # Convert happiness score to string for categorical axis
+    df_plot['Happiness.5pt.num'] = df_plot['Happiness.5pt.num'].astype(str)
+
+    # Define color scale
+    happiness_colors = ['#b0b0b0','#758a9b','#ffd366','#f6a437','#ec7014']
+    color_scale = alt.Scale(domain=['1','2','3','4','5'], range=happiness_colors)
+
+    # Base chart
+    base = alt.Chart(df_plot).mark_bar().encode(
+        x=alt.X('proportion:Q', title='Proportion of Respondents'),
+        y=alt.Y(f'{groupby_var[-1]}:N', title=groupby_var[-1]),
+        color=alt.Color('Happiness.5pt.num:N', title='Happiness Score', scale=color_scale),
+        tooltip=['Happiness.5pt.num', 'proportion', 'count']
+    )
+
+    # Facet if two grouping variables
+    if len(groupby_var) == 2:
+        chart = base.facet(
+            row=alt.Row(f'{groupby_var[0]}:N', title=groupby_var[0])
+        ).properties(
+            title=f'Happiness Score Across {groupby_var[0]} and {groupby_var[1]}'
+        )
+    else:
+        chart = base.properties(
+            title=f'Happiness Score Across {groupby_var[0]}'
+        )
+    st.dataframe(df_plot)
+    return chart.configure_axis(labelFontSize=12, titleFontSize=14).configure_title(fontSize=16)
     
 def plot_mn_happiness(df,col_feature,col_score = 'Happiness.5pt.num',sem_flag = False):
     df_grp = (df[[col_feature,col_score]]

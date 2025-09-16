@@ -136,147 +136,124 @@ def app():
     st.pyplot(fig1)
     
     # visualize distributions of happiness filters
-    fig2 = plot_fcns.plot_happiness_dist(filtered_df,'Year')
+    fig2 = plot_fcns.plot_happiness_dist(filtered_df,'Year') #matplotlib
     st.pyplot(fig2)
+    # fig2 = plot_fcns.plot_happiness_dist_altair(filtered_df,['Year']) #altair
+    # st.altair_chart(fig2, use_container_width=True)
+
     
     # identify if filters are set for saved hyperparameters
     is_all_filters = all(val == "All" for val in selected_filters.values())
-    # performing XGBoost for Feature Importance only upon button press
-    if st.button('Identify Important Features for these data'):
-        # classify columns as numeric or categorical
-        col_numeric = filtered_df.select_dtypes(include=['float64','int64']).columns.tolist()
-        col_categorical = filtered_df.select_dtypes(exclude=['float64','int64']).columns.tolist()
-
-        # find categorical columns that are not repeated within the numerical columns
-        col_categorical_unique = []
-        for s_cat in col_categorical:
-            if (
-                    not any(s_cat in s_num for s_num in col_numeric) 
-                    and 'label' not in s_cat
-                    ):
-                col_categorical_unique.append(s_cat)
-                
-                OHE_col = col_categorical_unique + binned_demo_columns + ['Ward','Year']
-                MMS_col =  ['CrashCount','CrimeCount',
-                            'CrashCount_PerYearPerWard','CrimeCount_PerYearPerWard',
-                            'bike_count','ped_count','ped2bike_foldinc',
-                            'Income.Per.Number.In.Household','Rent.Mortgage.mid',
-                            'Rent.Mortgage.Per.Bedroom','ACS.Somerville.Median.Income']
     
-        #define a new column transformer that removes the categorical columns
-        CT_dropcat = ColumnTransformer(
-            transformers = [
+    if st.button("(1) Re-train Classifier on Filtered Data"):
+        try:
+            # Step 1: Preprocessing setup
+            col_numeric = filtered_df.select_dtypes(include=['float64','int64']).columns.tolist()
+            col_categorical = filtered_df.select_dtypes(exclude=['float64','int64']).columns.tolist()
+
+            col_categorical_unique = []
+            for s_cat in col_categorical:
+                if not any(s_cat in s_num for s_num in col_numeric) and 'label' not in s_cat:
+                    col_categorical_unique.append(s_cat)
+
+            OHE_col = col_categorical_unique + binned_demo_columns + ['Ward','Year']
+            MMS_col =  ['CrashCount','CrimeCount',
+                        'CrashCount_PerYearPerWard','CrimeCount_PerYearPerWard',
+                        'bike_count','ped_count','ped2bike_foldinc',
+                        'Income.Per.Number.In.Household','Rent.Mortgage.mid',
+                        'Rent.Mortgage.Per.Bedroom','ACS.Somerville.Median.Income']
+
+            CT_dropcat = ColumnTransformer([
                 ('dropcat','drop',OHE_col),
                 ('MinMax',MinMaxScaler(),MMS_col)
-                ],
-            remainder = 'passthrough'
-            )   
+                ], remainder='passthrough')
 
-        # create pipeline to pre-process data in X for model fit
-        pipeline_xgb = Pipeline([
-            ('encode_scale',CT_dropcat),
-            ('imputer', SimpleImputer(strategy = 'most_frequent')),
-            ('bst',XGBClassifier(objective = 'multi:softmax',
-                                 num_class = 5,
-                                 eval_metric = 'mlogloss'))
-            ])
-        
-        if is_all_filters:
-            best_params = best_params_full
-            scores = {}
-            scores['accuracy'] = 0.702
-            scores['f1'] = 0.699
-        else:
-            # Train / Test Split with Stratification
-            X_train, X_test, y_train, y_test = train_test_split(filtered_df.drop(['Happiness.5pt.num'],axis=1),
-                                                                filtered_df['Happiness.5pt.num'],
-                                                                test_size = 0.2,
-                                                                random_state = 42,
-                                                                stratify = filtered_df['Happiness.5pt.num'])
-            y_train = y_train - 1
-            y_test = y_test - 1
-        
-            # setting up for cross-validation
-            params = {
+            pipeline_xgb = Pipeline([
+                ('encode_scale',CT_dropcat),
+                ('imputer', SimpleImputer(strategy='most_frequent')),
+                ('bst', XGBClassifier(objective='multi:softmax', num_class=5, eval_metric='mlogloss'))
+                ])
+
+            if is_all_filters:
+                best_params = best_params_full
+                scores = {'accuracy': 0.702, 'f1': 0.699}
+            else:
+                X_train, X_test, y_train, y_test = train_test_split(
+                    filtered_df.drop(['Happiness.5pt.num'], axis=1),
+                    filtered_df['Happiness.5pt.num'] - 1,
+                    test_size=0.2,
+                    random_state=42,
+                    stratify=filtered_df['Happiness.5pt.num']
+                    )
+
+                params = {
                     'bst__eta': [0.01, 0.05, 0.1, 0.2, 0.3],
                     'bst__min_child_weight': [1, 2, 4, 8, 10],
                     'bst__gamma': [0, 0.75, 1.5, 3, 6],
                     'bst__max_depth': [2, 4, 6, 8, 10],
                     }
-            skf = StratifiedKFold(n_splits = 5)
+                skf = StratifiedKFold(n_splits=5)
             
-            XGB_CV = RandomizedSearchCV(pipeline_xgb,
-                                        param_distributions=params,
-                                        n_iter = 10,
-                                        scoring = "f1_weighted",
-                                        cv = skf.split(X_train,y_train),
-                                        random_state = 42)
-        
-            #fitting and evaluating
-            XGB_CV.fit(X_train,y_train);
-            best_params = XGB_CV.best_params_
-            
-            y_pred = XGB_CV.predict(X_test)
-            scores = {}
-            scores['accuracy'] = round(metrics.accuracy_score(y_test, y_pred), 3)
-            scores['f1'] = round(metrics.f1_score(y_test,y_pred,average = 'weighted'),3)
-            
-        
-        
-        # running optimized XGB with full data
-        XGB_optimized = XGBClassifier(**best_params)
-        X = filtered_df.drop(['Happiness.5pt.num'],axis=1);
-        y = filtered_df['Happiness.5pt.num'] - 1; #making base 0 for fitting
-        
-        # create pipeline to pre-process data in X for model fit
-        pipeline_preprocess = Pipeline([
-            ('encode_scale',CT_dropcat),
-            ('imputer', SimpleImputer(strategy = 'most_frequent'))
-            ])
+                XGB_CV = RandomizedSearchCV(pipeline_xgb, param_distributions=params, n_iter=10,
+                                            scoring="f1_weighted", cv=skf.split(X_train, y_train),
+                                            random_state=42)
+                XGB_CV.fit(X_train, y_train)
+                best_params = XGB_CV.best_params_
+                y_pred = XGB_CV.predict(X_test)
+                scores = {
+                    'accuracy': round(metrics.accuracy_score(y_test, y_pred), 3),
+                    'f1': round(metrics.f1_score(y_test, y_pred, average='weighted'), 3)
+                    }
+                    
+            # Final model training on full data
+            X = filtered_df.drop(['Happiness.5pt.num'], axis=1)
+            y = filtered_df['Happiness.5pt.num'] - 1
+            pipeline_preprocess = Pipeline([
+                ('encode_scale', CT_dropcat),
+                ('imputer', SimpleImputer(strategy='most_frequent'))
+                ])
+            X_processed = pipeline_preprocess.fit_transform(X)
 
-        # perform pre-processing for dataset X
-        X_processed = pipeline_preprocess.fit_transform(X)
+            XGB_optimized = XGBClassifier(**best_params)
+            XGB_optimized.fit(X_processed, y)
+
+            x_col = list(X.columns)
+            ftr_names = [col_name for col_name in x_col if col_name not in OHE_col]
+            XGB_optimized.get_booster().feature_names = ftr_names
+
+            # Store in session state
+            st.session_state['XGB_optimized'] = XGB_optimized
+            st.session_state['scores'] = scores
+            st.session_state['model_ready'] = True
+        except Exception as e:
+            st.session_state['model_ready'] = False
+            st.error("These data are insufficient to train a model. Please select a new set of filters and try again.")
+            # st.exception(e)  # Optional: shows full traceback for debugging
+
+            
         
-        # fit full dataset
-        XGB_optimized.fit(X_processed,y)
-        
-        #defining feature names based on the columns in X
-        x_col = list(X.columns)
-        ftr_names = [col_name for col_name in x_col if col_name not in OHE_col]
-        XGB_optimized.get_booster().feature_names = ftr_names
-        
-        
-        
-        
-        
-        # plotting features for different importance types
-        # fig3 = plot_fcns.plot_feature_importance_column(XGB_optimized,['weight','gain','cover'])
-        # st.pyplot(fig3)
-        
-        # identifying important features with weighted avg of importance
-        n_ftrs = 5
-        df_top_features = plot_fcns.get_combined_importance(XGB_optimized, top_n = n_ftrs)
-        
-        # Store results in session state
-        st.session_state['df_top_features'] = df_top_features
-        st.session_state['XGB_optimized'] = XGB_optimized
-        st.session_state['best_params'] = best_params
-        st.session_state['scores'] = scores
-        st.session_state['model_trained'] = True
-    
-        
-    if st.session_state.get('model_trained', False):
-        df_top_features = st.session_state['df_top_features']
-        XGB_optimized = st.session_state['XGB_optimized']
+    if st.button("(2) Compute Feature Importance"):
+        if st.session_state.get('model_ready', False):
+            XGB_optimized = st.session_state['XGB_optimized']
+            n_ftrs = 5
+            df_top_features = plot_fcns.get_combined_importance(XGB_optimized, top_n=n_ftrs)
+
+            st.session_state['df_top_features'] = df_top_features
+            st.session_state['importance_ready'] = True
+        else:
+            st.warning("Please train the model first before computing feature importance.")
+
+    if st.session_state.get('model_ready', False):
         scores = st.session_state['scores']
-        
         st.markdown(f"""
-                    An XGBClassifier was evaluated with this filtered data. 
+                    An XGBClassifier was evaluated with these filtered data. 
                     Here are those results:  
                         - **Accuracy**: {scores['accuracy']}, 
                         **F1 Score**: {scores['f1']}
                         """)
 
+    if st.session_state.get('importance_ready', False):
+        df_top_features = st.session_state['df_top_features']
         st.subheader(f"Top {len(df_top_features)} Features Driving Happiness Score:")
         st.markdown("""
                     Using built-in methods, I have identified the top features that are important
@@ -303,15 +280,15 @@ if __name__ == '__main__':
     app()
 
 #%% - To-Do List - 
-# add an error catcher
+# add an error catcher - DONE
 # Alternative plotting libraries (plotly, altair)
-# add button to retrain model and separate from feature importance
+# add button to retrain model and separate from feature importance - DONE
 # figure out alternate feature importance strategies for filtered datasets too small for XGB?
-# Group demographics - done
+# Group demographics - DONE
 # Cache/load common demographics (e.g., all fields selected as All)
-#   loading all All - done
+#   loading all All - DONE
 #   caching user input (cache to disk, but have to reset each site visit)
-# List top features and show plots of how they interact with Happiness score - done
+# List top features and show plots of how they interact with Happiness score - DONE
 # Create a second page for:
 #       historical demographics visualization?
 #       unsupervised clustering of respondents
